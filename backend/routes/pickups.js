@@ -1,39 +1,48 @@
+// backend/routes/pickups.js
 const express = require('express');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth'); // DESTRUCTURE
 const Pickup = require('../models/Pickup');
 
 const router = express.Router();
 
-// Schedule pickup
-router.post('/schedule', auth, async (req, res) => {
+// PROTECT ALL ROUTES
+router.use(auth);
+
+// CREATE PICKUP REQUEST
+router.post('/', async (req, res) => {
   try {
-    const { address, scheduledTime } = req.body;
+    const { binId, address, preferredTime } = req.body;
+
+    if (!binId || !address) {
+      return res.status(400).json({ error: 'binId and address are required' });
+    }
+
     const pickup = new Pickup({
-      userId: req.user._id,
+      user: req.user._id,
+      bin: binId,
       address,
-      scheduledTime: new Date(scheduledTime)
+      preferredTime: preferredTime || new Date(),
+      status: 'pending'
     });
 
     await pickup.save();
-    res.status(201).json({ 
-      message: 'Pickup scheduled', 
-      pickup: { id: pickup._id, address, scheduledTime: pickup.scheduledTime } 
-    });
+    res.status(201).json({ message: 'Pickup requested!', pickup });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Create pickup error:', error);
+    res.status(500).json({ error: 'Failed to create pickup' });
   }
 });
 
-// Get my pickups
-router.get('/my', auth, async (req, res) => {
+// GET USER'S PICKUPS
+router.get('/my', async (req, res) => {
   try {
-    const pickups = await Pickup.find({ userId: req.user._id })
-      .populate('collectorId', 'username')
-      .sort({ scheduledTime: -1 });
+    const pickups = await Pickup.find({ user: req.user._id })
+      .populate('bin', 'name address')
+      .sort({ createdAt: -1 });
 
     res.json(pickups);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to fetch pickups' });
   }
 });
 

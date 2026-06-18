@@ -1,16 +1,16 @@
+// backend/models/Pickup.js
 const mongoose = require('mongoose');
 
 const pickupSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  bin: { type: mongoose.Schema.Types.ObjectId, ref: 'Bin', required: true },
   address: { type: String, required: true },
-  scheduledTime: { type: Date, required: true },
+  preferredTime: { type: Date, default: Date.now },
   status: { 
     type: String, 
-    enum: ['requested', 'scheduled', 'in-progress', 'completed', 'cancelled'], 
-    default: 'requested' 
-  },
-  wasteItems: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tracking' }],
-  collectorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    enum: ['pending', 'assigned', 'collected', 'cancelled'],
+    default: 'pending'
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Pickup', pickupSchema);

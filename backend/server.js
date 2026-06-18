@@ -1,3 +1,5 @@
+// backend/server.js
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -14,24 +16,30 @@ const trackingRoutes = require('./routes/tracking');
 const notificationRoutes = require('./routes/notifications');
 const analyticsRoutes = require('./routes/analytics');
 
-require('dotenv').config();
-
 const app = express();
 
-// Middleware
+// SECURITY FIRST
 app.use(helmet());
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting
+// CORS (ONCE!)
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
+
+// BODY PARSERS (ONCE!)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// RATE LIMITING
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  message: { error: 'Too many requests, please try again later.' }
 });
 app.use('/api/', limiter);
 
-// Routes
+// ROUTES
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/bins', binRoutes);
@@ -40,33 +48,45 @@ app.use('/api/v1/tracking', trackingRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 
-// Swagger Docs
-app.use('/api/docs', swaggerUi.serve);
-app.use('/api/docs', swaggerUi.setup(swaggerDocument));
+// SWAGGER DOCS
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-// Health check
+// HEALTH CHECK
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
-// 404 handler
+// 404 HANDLER
 app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
+// ERROR HANDLER (Global)
+app.use((err, req, res, next) => {
+  console.error('Server Error:', err);
+  res.status(err.status || 500).json({ 
+    error: err.message || 'Internal Server Error' 
+  });
+});
+
+// CONNECT & START
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
-    console.log('✅ Connected to MongoDB');
+    console.log('Connected to MongoDB');
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log(`📚 API Docs: http://localhost:${PORT}/api/docs`);
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`API Docs: http://localhost:${PORT}/api/docs`);
+      console.log(`Health: http://localhost:${PORT}/api/health`);
     });
   })
   .catch(err => {
-    console.error('❌ MongoDB connection error:', err);
+    console.error('MongoDB connection error:', err);
     process.exit(1);
   });
 

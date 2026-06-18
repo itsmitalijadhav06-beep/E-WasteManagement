@@ -1,25 +1,25 @@
 const express = require('express');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');  // ✅ fixed
 const { generateQRCode } = require('../utils/qrGenerator');
+const mongoose = require('mongoose');
 const Tracking = require('../models/Tracking');
 
 const router = express.Router();
 
-// Submit waste (generate QR)
 router.post('/submit', auth, async (req, res) => {
   try {
     const { binId, wasteType, weight } = req.body;
-    
+
     const trackingId = new mongoose.Types.ObjectId();
     const qrCode = await generateQRCode(trackingId);
-    
+
     const tracking = new Tracking({
       _id: trackingId,
       userId: req.user._id,
       binId,
       qrCode,
       wasteType,
-      weight
+      weight,
     });
 
     await tracking.save();
@@ -33,7 +33,6 @@ router.post('/submit', auth, async (req, res) => {
   }
 });
 
-// Get tracking status
 router.get('/:id/status', auth, async (req, res) => {
   try {
     const tracking = await Tracking.findOne({ 
@@ -49,7 +48,7 @@ router.get('/:id/status', auth, async (req, res) => {
       wasteType: tracking.wasteType,
       weight: tracking.weight,
       qrCode: tracking.qrCode,
-      bin: tracking.binId
+      bin: tracking.binId,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
